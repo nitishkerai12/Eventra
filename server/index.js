@@ -24,9 +24,8 @@ app.use("/api/bookings", bookingRoutes);
 
 app.get("/api/health", (req, res) => {
   const databaseConnected = mongoose.connection.readyState === 1;
-  const servicesConnected = databaseConnected && smtpConnected;
-  res.status(servicesConnected ? 200 : 503).json({
-    status: servicesConnected ? "ok" : "unavailable",
+  res.status(databaseConnected ? 200 : 503).json({
+    status: databaseConnected ? "ok" : "unavailable",
     database: databaseConnected ? "connected" : "disconnected",
     smtp: smtpConnected ? "connected" : "disconnected",
   });
@@ -37,11 +36,19 @@ if (fs.existsSync(clientBuildPath)) {
   app.use(express.static(clientBuildPath));
   app.use((req, res, next) => {
     if (req.method !== "GET" || req.path.startsWith("/api")) return next();
-    res.sendFile(path.join(clientBuildPath, "index.html"), (error) => {
+    res.sendFile(path.join(clientBuildPath, "index.html"), { dotfiles: "allow" }, (error) => {
       if (error) next(error);
     });
   });
+} else {
+  app.get("/", (req, res) => {
+    res.json({ message: "Eventra API is running.", health: "/api/health" });
+  });
 }
+
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "API endpoint not found" });
+});
 
 const redactCredentials = (message) => {
   let safeMessage = String(message);
@@ -62,7 +69,6 @@ const resolveMongoSrv = async (mongoUri) => {
 
   const hostname = new URL(mongoUri).hostname;
   const srvRecord = `_mongodb._tcp.${hostname}`;
-  const systemDnsServers = dns.getServers();
 
   try {
     await dns.promises.resolveSrv(srvRecord);
@@ -75,9 +81,8 @@ const resolveMongoSrv = async (mongoUri) => {
     try {
       dns.setServers(fallbackDnsServers);
       await dns.promises.resolveSrv(srvRecord);
-      return systemDnsServers;
+      console.log("Configured fallback DNS servers for MongoDB Atlas SRV resolution.");
     } catch (fallbackDnsError) {
-      dns.setServers(systemDnsServers);
       throw new Error(
         `MongoDB DNS lookup failed (system: ${systemDnsError.code || systemDnsError.name}; fallback: ${fallbackDnsError.code || fallbackDnsError.name}).`
       );
@@ -88,30 +93,34 @@ const resolveMongoSrv = async (mongoUri) => {
 const startServer = async () => {
   const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
   if (!mongoUri) {
-    throw new Error("Set MONGODB_URI in server/.env before starting the API.");
+    throw new Error("Set MONGODB_URI in environment variables before starting the API.");
   }
   if (!process.env.JWT_SECRET) {
-    throw new Error("Set JWT_SECRET in server/.env before starting the API.");
+    throw new Error("Set JWT_SECRET in environment variables before starting the API.");
   }
 
-  const systemDnsServers = await resolveMongoSrv(mongoUri);
-  try {
-    await mongoose.connect(mongoUri);
-  } finally {
-    if (systemDnsServers) dns.setServers(systemDnsServers);
-  }
+  await resolveMongoSrv(mongoUri);
+  await mongoose.connect(mongoUri);
   console.log("MongoDB connected");
 
-  await verifyEmailConnection();
-  smtpConnected = true;
-  console.log("SMTP connection verified");
+  try {
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      await verifyEmailConnection();
+      smtpConnected = true;
+      console.log("SMTP connection verified");
+    } else {
+      console.warn("EMAIL_USER or EMAIL_PASS not configured. Email notifications and OTP verification will be inactive until credentials are provided.");
+    }
+  } catch (emailError) {
+    console.warn(`SMTP connection verification failed: ${emailError.message}. Proceeding without active email service.`);
+  }
 
   const port = Number(process.env.PORT || 5000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error("PORT must be a valid port number.");
   }
 
-  app.listen(port, () => {
+  app.listen(port, "0.0.0.0", () => {
     console.log(`Server is running on port ${port}`);
   });
 };

@@ -29,17 +29,20 @@ const verifyEmailConnection = async () => {
     await transporter.verify();
 };
 
-const sendOtpEmail = async (email, otp,type) => {
+const sendOtpEmail = async (email, otp, type) => {
+    if (!emailUser || !emailPassword) {
+        throw new Error("Email service is not configured. Please set EMAIL_USER and EMAIL_PASS in environment variables.");
+    }
     try {
-        const title = type ===  'account_verification' ? 'Account Verification' : 'Event Booking';
+        const title = type === 'account_verification' ? 'Account Verification' : 'Event Booking';
         const msg = type === 'account_verification'
             ? 'Please use the following OTP to verify your new Eventra account:'
-            : 'please use the following OTP to verify and confirm your event booking on Eventra:';
+            : 'Please use the following OTP to verify and confirm your event booking on Eventra:';
         const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject:title,
-        html:  `
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: title,
+            html: `
            <div style="font-family: Arial, sans-serif; text-align: center;">
             <h2 style="color: #333;">${title}</h2>
             <p style="font-size: 16px; color: #555;">${msg}</p>
@@ -47,10 +50,10 @@ const sendOtpEmail = async (email, otp,type) => {
             <p style="font-size: 13px; color: #777;">This code expires in 5 minutes.</p>
            </div>
         `
-    };
-    
-    await transporter.sendMail(mailOptions);
-    console.log(`OTP email sent to ${email} for ${type}`);
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`OTP email sent to ${email} for ${type}`);
     } catch (error) {
         console.error("Error sending OTP email:", error.message);
         throw error;
@@ -58,6 +61,10 @@ const sendOtpEmail = async (email, otp,type) => {
 };
 
 const sendBookingEmail = async (email, userName, eventTitle) => {
+    if (!emailUser || !emailPassword) {
+        console.warn("Email service is not configured. Booking confirmation email skipped.");
+        return;
+    }
     try {
         const mailOptions = {
             from: process.env.EMAIL_USER,
@@ -73,7 +80,6 @@ const sendBookingEmail = async (email, userName, eventTitle) => {
         console.log(`Email sent successfully to ${email}`);
     } catch (error) {
         console.error('Error sending booking confirmation email:', error.message);
-        throw error;
     }
 };
 

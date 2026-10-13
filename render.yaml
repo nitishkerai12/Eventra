@@ -3,11 +3,14 @@ services:
     name: eventra
     runtime: node
     plan: free
-    buildCommand: npm install --include=dev && npm install --prefix server --include=dev && npm install --prefix clients --include=dev && npm run build
-    startCommand: npm --prefix server start
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20.19.0
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI
