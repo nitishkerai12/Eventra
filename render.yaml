@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: eventra
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm install --prefix server --include=dev && npm install --prefix clients --include=dev && npm run build
+    startCommand: npm --prefix server start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
