@@ -9,12 +9,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NODE_VERSION
-        value: 20.19.0
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI
-        sync: false
+        value: mongodb+srv://nitish:nitish12345@cluster0.6fr4tec.mongodb.net/eventraDEVV?appName=Cluster0
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS

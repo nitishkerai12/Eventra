@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 const { sendOtpEmail } = require("../utils/email.js");
 
 const generateToken = (id, role) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    return jwt.sign({ id, role }, process.env.JWT_SECRET || "eventra_production_jwt_secret_key_2026", { expiresIn: "7d" });
 }
 // Register user
 exports.registerUser = async (req, res) => {

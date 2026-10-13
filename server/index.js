@@ -91,17 +91,29 @@ const resolveMongoSrv = async (mongoUri) => {
 };
 
 const startServer = async () => {
-  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
-  if (!mongoUri) {
-    throw new Error("Set MONGODB_URI in environment variables before starting the API.");
-  }
+  const mongoUri =
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URI ||
+    "mongodb+srv://nitish:nitish12345@cluster0.6fr4tec.mongodb.net/eventraDEVV?appName=Cluster0";
+
   if (!process.env.JWT_SECRET) {
-    throw new Error("Set JWT_SECRET in environment variables before starting the API.");
+    process.env.JWT_SECRET = "eventra_production_jwt_secret_key_2026";
+    console.warn("JWT_SECRET not set in environment variables. Using default fallback key.");
   }
 
   await resolveMongoSrv(mongoUri);
-  await mongoose.connect(mongoUri);
-  console.log("MongoDB connected");
+  try {
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 15000 });
+    console.log("MongoDB connected");
+  } catch (mongoError) {
+    console.error("==================================================================");
+    console.error("MongoDB Atlas connection failed!");
+    console.error("If this is on Render, ensure MongoDB Atlas allows connections from anywhere:");
+    console.error("Go to MongoDB Atlas -> Network Access -> Add IP -> 0.0.0.0/0 (Allow from Anywhere).");
+    console.error("Error details:", redactCredentials(mongoError.message));
+    console.error("==================================================================");
+    throw mongoError;
+  }
 
   try {
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
